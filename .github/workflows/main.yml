@@ -7,7 +7,8 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPOSITORY: jenkins-pro
+  ECR_REPOSITORY: frontendupdate
+  ECR_REGISTRY: 255082776260.dkr.ecr.us-east-1.amazonaws.com
 
 jobs:
   build-and-push:
@@ -27,6 +28,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Create ECR Repository if not exists
+        run: |
+          aws ecr describe-repositories \
+          --repository-names $ECR_REPOSITORY \
+          --region $AWS_REGION || \
+          aws ecr create-repository \
+          --repository-name $ECR_REPOSITORY \
+          --region $AWS_REGION
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -45,26 +55,26 @@ jobs:
         run: |
           docker tag \
           $ECR_REPOSITORY:${{ steps.vars.outputs.sha_short }} \
-          ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${{ steps.vars.outputs.sha_short }}
+          $ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.vars.outputs.sha_short }}
 
       - name: Push Docker image
         run: |
           docker push \
-          ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${{ steps.vars.outputs.sha_short }}
+          $ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.vars.outputs.sha_short }}
 
       - name: Tag latest image
         run: |
           docker tag \
           $ECR_REPOSITORY:${{ steps.vars.outputs.sha_short }} \
-          ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:latest
+          $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
       - name: Push latest image
         run: |
           docker push \
-          ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:latest
+          $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
       - name: Output image URI
         run: |
           echo "Docker image pushed successfully"
-          echo "${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:${{ steps.vars.outputs.sha_short }}"
-          echo "${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:latest"
+          echo "$ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.vars.outputs.sha_short }}"
+          echo "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
